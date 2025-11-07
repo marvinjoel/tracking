@@ -8,7 +8,7 @@ import os
 
 
 print("Cargando modelo YOLO...")
-model = YOLO("yolov8n.pt")
+model = YOLO("yolov8m.pt")
 print("Modelo YOLO cargado.")
 
 tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)

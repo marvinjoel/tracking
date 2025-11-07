@@ -2,3 +2,5 @@
 .venv
 output
 __pycache__/
+yolov8n.pt
+yolov8m.pt
