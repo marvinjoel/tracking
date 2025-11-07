@@ -1,17 +1,32 @@
 from ultralytics import YOLO
 from state_manager import StateManager
-from sort import SortTracker as Sort
-import numpy as np
+from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
 import json
 import os
-
 
 print("Cargando modelo YOLO...")
 model = YOLO("yolov8m.pt")
 print("Modelo YOLO cargado.")
 
-tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
+tracker = DeepSort(
+    # Aumentamos la paciencia a 10 segundos (300 frames @ 30fps)
+    max_age=300,
+
+    # [FIX 2] Aumentamos el "costo" de crear un NUEVO ID.
+    # El tracker debe ver un objeto por 10 frames antes de
+    # asignarle un ID nuevo. Esto le da a la Re-ID más tiempo
+    # para encontrar una coincidencia con un ID antiguo.
+    n_init=10,
+
+    nms_max_overlap=1.0,
+    max_iou_distance=0.7,
+
+    # [FIX 2] Hacemos la Re-ID aún más flexible
+    max_cosine_distance=0.7,
+
+    nn_budget=None
+)
 
 # Inicializar nuestro Gestor de Estado
 state_manager = StateManager()
@@ -33,68 +48,55 @@ try:
             print("Fin del video o error al leer frame.")
             break
 
-        results = model(frame, classes=[0], verbose=False)
+        # --- 3. FORMATO DE DETECCIÓN ---
+        results_yolo = model(frame, classes=[0], verbose=False)
 
         detections_list = []
-        # --- ESTA ES LA SOLUCIÓN DEFINITIVA PARA EL PELUCHE ---
-
-        # 1. Definimos un umbral de confianza ALTO.
-        #    Lo subo a 70% (0.7) para estar más seguros.
         MIN_CONFIDENCE = 0.7
 
-        for box in results[0].boxes:
-
+        for box in results_yolo[0].boxes:
             cls = int(box.cls[0].cpu().numpy())
             conf = float(box.conf[0].cpu().numpy())
 
-            # --- ¡AÑADIR ESTA LÍNEA DE DEBUG! ---
-            # Esto nos mostrará en la consola CADA objeto que YOLO ve
-            print(f"[DEBUG] Objeto detectado: Clase={cls}, Confianza={conf:.2f}")
-            # --- FIN DE LA LÍNEA DE DEBUG ---
-
-            # ¡EL FILTRO QUE ESTÁ FALLANDO!
             if cls == 0 and conf > MIN_CONFIDENCE:
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                detections_list.append([x1, y1, x2, y2, conf, cls])
+                w = x2 - x1
+                h = y2 - y1
+                bbox_deepsort = [x1, y1, w, h]
+                detections_list.append((bbox_deepsort, conf, cls))
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Si la lista de detecciones no está vacía, la convertimos a array
-        if len(detections_list) > 0:
-            detections_np = np.array(detections_list)
-        else:
-            detections_np = np.empty((0, 6))
-            # --- FIN DE LA CORRECCIÓN ---
+        # --- 4. LLAMADA DE UPDATE ---
+        tracks = tracker.update_tracks(detections_list, frame=frame)
 
-            # --- PASO 6: Aplicar Seguimiento (SORT) ---
-            # Ahora, 'detections_np' siempre tendrá la forma 2D correcta
-            # ( (N, 6) o (0, 6) ) y la librería no se romperá.
-        trackers = tracker.update(detections_np, frame)
+        # --- 5. LECTURA DE RESULTADOS ---
+        visible_track_ids = []
 
-        # --- FIN DE LA CORRECCIÓN ---
+        for track in tracks:
+            # --- [FIX 1 - "Ghosting"] ---
+            # Si 'time_since_update' > 0, significa que el track
+            # se está basando en una PREDICCIÓN (es un "fantasma").
+            # Lo ignoramos para que el cuadro desaparezca al instante.
+            if not track.is_confirmed() or track.time_since_update > 0:
+                continue
 
-        visible_track_ids = [int(d[4]) for d in trackers]
+            track_id = track.track_id
+            visible_track_ids.append(track_id)
 
-        state_manager.update_states(visible_track_ids)
+            bbox_tlbr = track.to_tlbr()
+            x1, y1, x2, y2 = map(int, bbox_tlbr)
 
-        # --- PASO 8: Visualizar Detecciones y Métricas ---
-        for d in trackers:
-            x1, y1, x2, y2, track_id = map(int, d[:5])
-
-            # Obtener la info del sujeto desde nuestro "cerebro"
+            # --- DIBUJO ---
             subject = state_manager.get_subject_info(track_id)
-
             if subject:
-                # Obtener el string de tiempo formateado
                 time_str = subject.get_visible_time_str()
                 label = f"ID: {track_id} | T: {time_str}"
-
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
                 (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
                 cv2.rectangle(frame, (x1, y1 - 20), (x1 + w, y1), (0, 255, 0), -1)
-
-                # Poner el texto del ID y Tiempo
                 cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
+
+        # --- 6. ACTUALIZACIÓN DEL "CEREBRO" ---
+        state_manager.update_states(visible_track_ids)
 
         # Mostrar el frame
         cv2.imshow("MVP Tracking (pulsa 'q' para salir)", frame)
@@ -105,26 +107,20 @@ try:
             break
 
 finally:
-    # --- PASO 9: Limpiar y Guardar Métricas Finales ---
+    # --- PASO 9: Limpiar y Guardar Métricas (No cambia nada) ---
     print("Cerrando recursos...")
     cap.release()
     cv2.destroyAllWindows()
 
-    # Obtener los datos del resumen desde el state_manager
     print("Obteniendo resumen final...")
     final_summary = state_manager.get_final_summary()
 
     # --- 1. Imprimir en Consola ---
-    # Usamos json.dumps() (con 's' de string) para 'pretty-print'
-    # el diccionario a la consola.
     print("\n" + "=" * 30)
     print("--- RESUMEN FINAL DE TIEMPOS (Consola) ---")
     print("=" * 30)
-
-    # json.dumps() convierte el dict en un string JSON formateado
     pretty_summary_string = json.dumps(final_summary, indent=4, ensure_ascii=False)
     print(pretty_summary_string)
-
     print("=" * 30)
 
     # --- 2. Guardar en Archivo JSON ---
@@ -132,13 +128,9 @@ finally:
     output_path = os.path.join(OUTPUT_DIR, "tracking_summary.json")
 
     try:
-        # Crear la carpeta 'output' si no existe
         os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-        # json.dump() (sin 's') guarda el dict en el archivo
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(final_summary, f, indent=4, ensure_ascii=False)
-
         print(f"\nResumen final también guardado en: {output_path}\n")
 
     except Exception as e:
