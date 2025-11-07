@@ -42,9 +42,21 @@ try:
             cls = box.cls[0].cpu().numpy()
             detections_list.append([x1, y1, x2, y2, conf, cls])
 
-        detections_np = np.array(detections_list)
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Si la lista de detecciones no está vacía, la convertimos a array
+            if len(detections_list) > 0:
+                detections_np = np.array(detections_list)
+            else:
+                # Si la lista SÍ está vacía, creamos un array NumPy vacío
+                # CON LA FORMA 2D CORRECTA (0 filas, 6 columnas) que la
+                # librería 'sort' espera.
+                detections_np = np.empty((0, 6))
+            # --- FIN DE LA CORRECCIÓN ---
 
-        trackers = tracker.update(detections_np, frame)
+            # --- PASO 6: Aplicar Seguimiento (SORT) ---
+            # Ahora, 'detections_np' siempre tendrá la forma 2D correcta
+            # ( (N, 6) o (0, 6) ) y la librería no se romperá.
+            trackers = tracker.update(detections_np, frame)
 
         # --- FIN DE LA CORRECCIÓN ---
 
