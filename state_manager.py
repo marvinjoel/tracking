@@ -16,16 +16,22 @@ class TrackedSubject:
         Marca al sujeto como visible en el frame actual.
         Calcula el tiempo invisible si estaba desaparecido.
         """
-        current_time: datetime = datetime.now()
+        current_time = datetime.now()
         if not self.is_visible:
-            # Estaba invisible, ahora está regresando
+            # --- ACABA DE REAPARECER ---
+            # 1. Calculamos el tiempo que estuvo fuera
             if self.last_disappeared:
-                invisible_duration: int = current_time - self.last_disappeared
+                invisible_duration = current_time - self.last_disappeared
                 self.total_invisible_time += invisible_duration
                 print(f"REGRESA: ID {self.track_id} | Tiempo fuera: {invisible_duration}")
 
-        self.is_visible: bool = True
-        self.last_seen: datetime = current_time
+            # 2. Guardamos la hora de inicio de esta NUEVA sesión visible
+            #    ¡¡ESTA ES LA CORRECCIÓN!!
+            #    Solo actualizamos 'last_seen' cuando no estaba visible.
+            self.last_seen = current_time
+
+        # 3. Marcamos que está visible
+        self.is_visible = True
 
     def mark_invisible(self) -> None:
         """
@@ -113,9 +119,17 @@ class StateManager:
 
             # Convertimos los objetos 'datetime' y 'timedelta' a strings
             # porque JSON no puede guardarlos directamente.
+
+            visible_str = str(subject.total_visible_time)
+            invisible_str = str(subject.total_invisible_time)
+
+            # 2. ¡LA SOLUCIÓN! Partir la cadena en el '.' y tomar solo la parte H:MM:SS
+            visible_hms = visible_str.split('.')[0]
+            invisible_hms = invisible_str.split('.')[0]
+
             summary_data[track_id] = {
-                "Tiempo Visible Total": str(subject.total_visible_time),
-                "Tiempo Invisible Total": str(subject.total_invisible_time),
+                "Tiempo Visible Total": visible_hms,
+                "Tiempo Invisible Total": invisible_hms,
                 "Visto por última vez": subject.last_seen.isoformat() if subject.last_seen else None,
                 "Desapareció por última vez": subject.last_disappeared.isoformat() if subject.last_disappeared else None
             }
