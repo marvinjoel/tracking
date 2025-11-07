@@ -36,27 +36,39 @@ try:
         results = model(frame, classes=[0], verbose=False)
 
         detections_list = []
+        # --- ESTA ES LA SOLUCIÓN DEFINITIVA PARA EL PELUCHE ---
+
+        # 1. Definimos un umbral de confianza ALTO.
+        #    Lo subo a 70% (0.7) para estar más seguros.
+        MIN_CONFIDENCE = 0.7
+
         for box in results[0].boxes:
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-            conf = box.conf[0].cpu().numpy()
-            cls = box.cls[0].cpu().numpy()
-            detections_list.append([x1, y1, x2, y2, conf, cls])
+
+            cls = int(box.cls[0].cpu().numpy())
+            conf = float(box.conf[0].cpu().numpy())
+
+            # --- ¡AÑADIR ESTA LÍNEA DE DEBUG! ---
+            # Esto nos mostrará en la consola CADA objeto que YOLO ve
+            print(f"[DEBUG] Objeto detectado: Clase={cls}, Confianza={conf:.2f}")
+            # --- FIN DE LA LÍNEA DE DEBUG ---
+
+            # ¡EL FILTRO QUE ESTÁ FALLANDO!
+            if cls == 0 and conf > MIN_CONFIDENCE:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                detections_list.append([x1, y1, x2, y2, conf, cls])
 
             # --- INICIO DE LA CORRECCIÓN ---
             # Si la lista de detecciones no está vacía, la convertimos a array
-            if len(detections_list) > 0:
-                detections_np = np.array(detections_list)
-            else:
-                # Si la lista SÍ está vacía, creamos un array NumPy vacío
-                # CON LA FORMA 2D CORRECTA (0 filas, 6 columnas) que la
-                # librería 'sort' espera.
-                detections_np = np.empty((0, 6))
+        if len(detections_list) > 0:
+            detections_np = np.array(detections_list)
+        else:
+            detections_np = np.empty((0, 6))
             # --- FIN DE LA CORRECCIÓN ---
 
             # --- PASO 6: Aplicar Seguimiento (SORT) ---
             # Ahora, 'detections_np' siempre tendrá la forma 2D correcta
             # ( (N, 6) o (0, 6) ) y la librería no se romperá.
-            trackers = tracker.update(detections_np, frame)
+        trackers = tracker.update(detections_np, frame)
 
         # --- FIN DE LA CORRECCIÓN ---
 
