@@ -56,3 +56,26 @@ class TrackingRepository:
 
         except Exception as e:
             print(f"Error al registrar evento en BD: {e}")
+
+    def get_events_by_track_id(self, track_id: str):
+        """
+        Obtiene todos los eventos de movimiento para un ID específico,
+        ordenados por tiempo.
+        """
+        if not self.cursor:
+            return []
+
+        try:
+            query = sql.SQL("""
+                            SELECT timestamp_evento, tipo_evento
+                            FROM tracking_events
+                            WHERE track_id = %s
+                            ORDER BY timestamp_evento ASC
+                            """)
+
+            self.cursor.execute(query, (track_id,))
+            return self.cursor.fetchall()  # Devuelve una lista de (timestamp, evento)
+
+        except Exception as e:
+            print(f"Error al leer eventos de la BD: {e}")
+            return []
