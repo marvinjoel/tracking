@@ -1,5 +1,6 @@
 .idea
 .venv
+.env
 output
 __pycache__/
 yolov8n.pt

@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 from state_manager import StateManager
 from deep_sort_realtime.deepsort_tracker import DeepSort
+from app.database import TrackingRepository
 import cv2
 import json
 import os
@@ -30,6 +31,8 @@ tracker = DeepSort(
 
 # Inicializar nuestro Gestor de Estado
 state_manager = StateManager()
+
+db_repo = TrackingRepository()
 
 video_path = 0
 cap = cv2.VideoCapture(video_path)
@@ -122,6 +125,14 @@ finally:
     pretty_summary_string = json.dumps(final_summary, indent=4, ensure_ascii=False)
     print(pretty_summary_string)
     print("=" * 30)
+
+    # --- 2. Guardar en Base de Datos (¡NUEVO!) ---
+    # En lugar de guardar en JSON, llamamos a nuestro repositorio.
+    if db_repo.conn:  # Solo si la conexión fue exitosa
+        db_repo.save_summary_data(final_summary)
+        db_repo.close()
+    else:
+        print("No se guardó en BD (conexión fallida al inicio).")
 
     # --- 2. Guardar en Archivo JSON ---
     OUTPUT_DIR = "output"
