@@ -1,10 +1,11 @@
 from ultralytics import YOLO
-from state_manager import StateManager
+from app.state_manager import StateManager
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from app.database import TrackingRepository
 import cv2
 import json
 import os
+
 
 print("Cargando modelo YOLO...")
 model = YOLO("yolov8m.pt")
