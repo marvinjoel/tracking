@@ -56,7 +56,7 @@ if not cap.isOpened():
 print("Iniciando captura de video...")
 
 try:
-    # --- Tu bucle principal (NO LO TOCO) ---
+    # --- Tu bucle principal ---
     while True:
         success, frame = cap.read()
         if not success:
@@ -136,7 +136,7 @@ finally:
     else:
         print("No se guardó en BD (conexión fallida al inicio).")
 
-    # 3. Guardar JSON (Tu código lo tenía, lo mantengo)
+    # 3. Guardar JSON
     OUTPUT_DIR = "output"
     output_path = os.path.join(OUTPUT_DIR, "tracking_summary.json")
     try:
