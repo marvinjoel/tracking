@@ -4,3 +4,4 @@ sort-track==0.0.8
 ultralytics==8.3.225
 opencv-python==4.9.0.80
 psycopg2-binary==2.9.11
+matplotlib==3.9.4
