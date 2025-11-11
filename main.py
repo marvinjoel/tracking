@@ -74,7 +74,7 @@ try:
                 conf = float(box.conf[0].cpu().numpy())
                 if cls == 0 and conf > MIN_CONFIDENCE:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                    w = x2 - x1;
+                    w = x2 - x1
                     h = y2 - y1
                     bbox_deepsort = [x1, y1, w, h]
                     detections_list.append((bbox_deepsort, conf, cls))

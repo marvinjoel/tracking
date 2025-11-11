@@ -10,26 +10,34 @@ def calculate_time_blocks(events: list):
     Toma la lista de eventos de la BD y la convierte en
     bloques de tiempo "visibles" e "invisibles".
 
-    ESTA ES LA VERSIÓN CORREGIDA (v4)
+    ¡ESTA VERSIÓN ESTÁ CORREGIDA PARA MANEJAR REINICIOS!
     """
     blocks = []
 
     if len(events) < 2:
-        print("Se necesitan al menos 2 eventos para dibujar un bloque.")
         return blocks
 
     # Iteramos sobre los eventos, parando en el PENÚLTIMO
     for i in range(len(events) - 1):
 
-        # El evento actual define el INICIO y el ESTADO
         start_time = events[i][0]
         start_type = events[i][1]
 
-        # El SIGUIENTE evento define el FIN
         end_time = events[i + 1][0]
+        end_type = events[i + 1][1]  # <-- ¡NUEVO! Leemos el tipo de evento final
 
-        # Calculamos la duración de este bloque
         duration = end_time - start_time
+
+        # --- ¡NUEVA LÓGICA DE REINICIO! ---
+        # Si el bloque termina con "NUEVO", significa que el programa
+        # se reinició. Este bloque de tiempo es inválido (o es
+        # tiempo "desconocido"), así que lo saltamos (o lo pintamos de gris).
+        # Por ahora, lo saltaremos.
+
+        if end_type == 'NUEVO':
+            print(f"Saltando bloque por reinicio: {start_time} -> {end_time}")
+            continue  # Saltar este bloque, es un dato "fantasma"
+        # --- FIN DE LA NUEVA LÓGICA ---
 
         # Determinamos el color (estado) del bloque
         if start_type == 'NUEVO' or start_type == 'VISTO':
@@ -37,7 +45,6 @@ def calculate_time_blocks(events: list):
         else:  # El tipo de inicio fue 'PERDIDO'
             status = 'invisible'
 
-        # Añadimos el bloque completado a nuestra lista
         blocks.append((start_time, duration, status))
 
     print(f"Bloques de tiempo calculados: {len(blocks)}")
