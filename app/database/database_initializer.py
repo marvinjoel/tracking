@@ -32,3 +32,17 @@ def initialize_database(cursor):
     """
     cursor.execute(create_events_table_query)
     print("Tabla 'tracking_events' (de movimiento) verificada/creada.")
+
+    create_schedule_table_query = """
+    CREATE TABLE IF NOT EXISTS horarios_medicion (
+        id SERIAL PRIMARY KEY,
+        
+        -- 0=Lunes, 1=Martes, ..., 6=Domingo
+        dia_semana INT NOT NULL, 
+        
+        hora_inicio TIME NOT NULL, -- Ej: '09:00:00'
+        hora_fin TIME NOT NULL     -- Ej: '12:00:00'
+    );
+    """
+    cursor.execute(create_schedule_table_query)
+    print("Tabla 'horarios_medicion' verificada/creada.")

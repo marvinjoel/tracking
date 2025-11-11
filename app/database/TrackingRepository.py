@@ -79,3 +79,42 @@ class TrackingRepository:
         except Exception as e:
             print(f"Error al leer eventos de la BD: {e}")
             return []
+
+    def is_schedule_active(self) -> bool:
+        """
+        Verifica si hay un horario activo en la BD para
+        el día y la hora actuales.
+        """
+        if not self.cursor:
+            return False  # Si no hay BD, no podemos chequear
+
+        try:
+            # 1. Obtenemos el día y la hora actuales
+            now = datetime.now()
+            current_day_of_week = now.weekday()  # 0=Lunes, 1=Martes, etc.
+            current_time = now.time()  # Ej. 10:30:00
+
+            # 2. Creamos la consulta
+            query = sql.SQL("""
+                            SELECT COUNT(*)
+                            FROM horarios_medicion
+                            WHERE dia_semana = %s
+                              AND hora_inicio <= %s
+                              AND hora_fin >= %s
+                            """)
+
+            # 3. Ejecutamos
+            self.cursor.execute(query, (
+                current_day_of_week,
+                current_time,
+                current_time
+            ))
+
+            # 4. Obtenemos el resultado (el valor de COUNT(*))
+            count = self.cursor.fetchone()[0]
+
+            return count > 0  # Si es > 0, ¡hay un horario activo!
+
+        except Exception as e:
+            print(f"Error al chequear horario en BD: {e}")
+            return False
