@@ -1,21 +1,20 @@
-# main.py
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
 import json
 import os
+import time
 
 from app.database.DatabaseConnection import DatabaseConnection
 from app.database.TrackingRepository import TrackingRepository
 from app.state_manager import StateManager
 from app.database.database_initializer import initialize_database
 
-
-
 print("Cargando modelo YOLO...")
 model = YOLO("yolov8m.pt")
 print("Modelo YOLO cargado.")
 
+# Configuración del Tracker (Tu código - SIN CAMBIOS)
 tracker = DeepSort(
     max_age=300,
     n_init=10,
@@ -25,24 +24,17 @@ tracker = DeepSort(
     nn_budget=None
 )
 
-# --- INICIALIZACIÓN DE COMPONENTES (EL ARREGLO) ---
-# 1. Creamos la conexión
 db_conn = DatabaseConnection()
 
-# 2. Solo si la conexión es exitosa, procedemos
 if db_conn.conn:
-    # 3. Inicializamos las tablas (le pasamos el cursor)
     initialize_database(db_conn.cursor)
-
-    # 4. Creamos el Repositorio (le pasamos el cursor)
     db_repo = TrackingRepository(db_conn.cursor)
-
-    # 5. Inyectamos el Repositorio en el StateManager (DIP)
     state_manager = StateManager(db_repo=db_repo)
 else:
     print("ADVERTENCIA: Corriendo sin conexión a base de datos.")
-    state_smanager = StateManager(db_repo=None)  # Correr sin BD
-# --- FIN DE INICIALIZACIÓN ---
+    # ¡CORRECCIÓN DE BUG! (Tu código decía 'state_smanager')
+    state_manager = StateManager(db_repo=None)
+    db_repo = None
 
 
 video_path = 0
@@ -50,68 +42,79 @@ cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
     print(f"Error: No se pudo abrir la fuente de video: {video_path}")
-    if db_conn: db_conn.close()  # Asegurarnos de cerrar
+    if db_conn: db_conn.close()
     exit()
 
-print("Iniciando captura de video...")
+print("Iniciando bucle principal...")
+
+is_window_visible = False
 
 try:
-    # --- Tu bucle principal ---
     while True:
-        success, frame = cap.read()
-        if not success:
-            break  # Tu código es más limpio
 
-        results_yolo = model(frame, classes=[0], verbose=False)
+        # 1. Chequeamos si tenemos conexión y si el horario está activo
+        # (Si no hay db_repo, asumimos que debe correr siempre)
+        is_active = not db_repo or db_repo.is_schedule_active()
 
-        detections_list = []
-        MIN_CONFIDENCE = 0.7
+        if is_active:
+            # --- MODO ACTIVO ---
+            if not is_window_visible:
+                print("Horario ACTIVO. Iniciando monitoreo...")
+                is_window_visible = True
 
-        for box in results_yolo[0].boxes:
-            cls = int(box.cls[0].cpu().numpy())
-            conf = float(box.conf[0].cpu().numpy())
+            success, frame = cap.read()
+            if not success:
+                break
 
-            if cls == 0 and conf > MIN_CONFIDENCE:
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                w = x2 - x1
-                h = y2 - y1
-                bbox_deepsort = [x1, y1, w, h]
-                detections_list.append((bbox_deepsort, conf, cls))
+            results_yolo = model(frame, classes=[0], verbose=False)
+            detections_list = []
+            MIN_CONFIDENCE = 0.7
+            for box in results_yolo[0].boxes:
+                cls = int(box.cls[0].cpu().numpy())
+                conf = float(box.conf[0].cpu().numpy())
+                if cls == 0 and conf > MIN_CONFIDENCE:
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                    w = x2 - x1;
+                    h = y2 - y1
+                    bbox_deepsort = [x1, y1, w, h]
+                    detections_list.append((bbox_deepsort, conf, cls))
+            tracks = tracker.update_tracks(detections_list, frame=frame)
+            visible_track_ids = []
+            for track in tracks:
+                if not track.is_confirmed() or track.time_since_update > 0:
+                    continue
+                track_id = track.track_id
+                visible_track_ids.append(track_id)
+                bbox_tlbr = track.to_tlbr()
+                x1, y1, x2, y2 = map(int, bbox_tlbr)
+                subject = state_manager.get_subject_info(track_id)
+                if subject:
+                    time_str = subject.get_visible_time_str()
+                    label = f"ID: {track_id} | T: {time_str}"
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                    cv2.rectangle(frame, (x1, y1 - 20), (x1 + w, y1), (0, 255, 0), -1)
+                    cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
 
-        tracks = tracker.update_tracks(detections_list, frame=frame)
+            state_manager.update_states(visible_track_ids)
+            cv2.imshow("MVP Tracking (pulsa 'q' para salir)", frame)
 
-        visible_track_ids = []
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                print("Cerrando stream...")
+                break
 
-        for track in tracks:
-            if not track.is_confirmed() or track.time_since_update > 0:
-                continue
+        else:
+            # --- MODO INACTIVO ---
+            if is_window_visible:
+                # Si la ventana estaba abierta, la cerramos
+                print("Horario INACTIVO. Pausando monitoreo...")
+                cv2.destroyWindow("MVP Tracking (pulsa 'q' para salir)")
+                is_window_visible = False
 
-            track_id = track.track_id
-            visible_track_ids.append(track_id)
-
-            bbox_tlbr = track.to_tlbr()
-            x1, y1, x2, y2 = map(int, bbox_tlbr)
-
-            subject = state_manager.get_subject_info(track_id)
-            if subject:
-                time_str = subject.get_visible_time_str()
-                label = f"ID: {track_id} | T: {time_str}"
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-                cv2.rectangle(frame, (x1, y1 - 20), (x1 + w, y1), (0, 255, 0), -1)
-                cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
-
-        # El StateManager ahora registra los eventos en la BD en tiempo real
-        state_manager.update_states(visible_track_ids)
-
-        cv2.imshow("MVP Tracking (pulsa 'q' para salir)", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("Cerrando stream...")
-            break
+            # "Dormimos" por 30 segundos antes de volver a chequear
+            time.sleep(30)
 
 finally:
-    # --- Tu bloque 'finally' (CON EL ARREGLO) ---
     print("Cerrando recursos...")
     cap.release()
     cv2.destroyAllWindows()
@@ -129,10 +132,10 @@ finally:
 
     # 2. Guardar en Base de Datos
     if db_conn and db_conn.conn:
-        # Reutilizamos el 'db_repo' creado al inicio
+        # Volvemos a crear un repo para el resumen final
         db_repo_final = TrackingRepository(db_conn.cursor)
         db_repo_final.save_summary_data(final_summary)
-        db_conn.close()  # Cerramos la conexión
+        db_conn.close()
     else:
         print("No se guardó en BD (conexión fallida al inicio).")
 

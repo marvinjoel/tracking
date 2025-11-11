@@ -53,7 +53,7 @@ def plot_timeline(track_id, blocks):
 
     # Definimos los colores
     colors = {
-        'visible': 'green',
+        'visible': 'blue',
         'invisible': 'red'
     }
 
