@@ -20,7 +20,7 @@ def save_proof_image(frame, track_id):
             y2 = min(frame_h, y2 + margin)
 
             cropped_frame = frame[y1:y2, x1:x2]
-            if cropped_frame.size == 0:  # En caso de un ROI muy pequeño o inválido
+            if cropped_frame.size == 0:
                 print(
                     f"ADVERTENCIA: ROI inválido o demasiado pequeño para el recorte. Guardando frame completo para ID {track_id}.")
                 frame_to_save = frame
