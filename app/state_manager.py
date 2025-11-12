@@ -12,7 +12,7 @@ class StateManager:
     Actúa como un Patrón de Diseño "Manager" o "Repository" simple.
     No sabe de YOLO ni de SORT, solo recibe una lista de IDs.
     """
-    PROOF_IMAGE_INTERVAL = timedelta(minutes=int(os.getenv("MINUTE")))
+    PROOF_IMAGE_INTERVAL = timedelta(seconds=int(os.getenv("SECONDS")))
 
     def __init__(self, db_repo: TrackingRepository) -> None:
         self.subjects = {}
