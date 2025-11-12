@@ -60,3 +60,15 @@ def get_roi_state():
     """Devuelve el estado actual del ROI para el filtro."""
     global roi_defined, roi_pts
     return roi_defined, roi_pts
+
+def get_roi_coordinates():
+    """
+    Devuelve las coordenadas del ROI si está definido, None en caso contrario.
+    Formato: (x1, y1, x2, y2)
+    """
+    global roi_defined, roi_pts
+    if roi_defined and len(roi_pts) == 2:
+        x1, y1 = roi_pts[0]
+        x2, y2 = roi_pts[1]
+        return (x1, y1, x2, y2)
+    return None
