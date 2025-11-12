@@ -1,7 +1,10 @@
 from datetime import timedelta, datetime
 from app.database.TrackingRepository import TrackingRepository
 from app.subject import TrackedSubject
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
 class StateManager:
     """
@@ -9,7 +12,7 @@ class StateManager:
     Actúa como un Patrón de Diseño "Manager" o "Repository" simple.
     No sabe de YOLO ni de SORT, solo recibe una lista de IDs.
     """
-    PROOF_IMAGE_INTERVAL = timedelta(minutes=5)
+    PROOF_IMAGE_INTERVAL = timedelta(minutes=int(os.getenv("MINUTE")))
 
     def __init__(self, db_repo: TrackingRepository) -> None:
         self.subjects = {}
