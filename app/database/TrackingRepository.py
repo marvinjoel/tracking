@@ -118,3 +118,24 @@ class TrackingRepository:
         except Exception as e:
             print(f"Error al chequear horario en BD: {e}")
             return False
+
+    def get_active_cameras(self) -> list:
+        """
+        Obtiene una lista de todas las cámaras marcadas como 'esta_activa = true'.
+        """
+        if not self.cursor:
+            return []
+
+        try:
+            query = sql.SQL("""
+                            SELECT id, url_rtsp, algoritmo_a_usar
+                            FROM lista_camaras
+                            WHERE esta_activa = true
+                            """)
+
+            self.cursor.execute(query)
+            return self.cursor.fetchall()
+
+        except Exception as e:
+            print(f"Error al leer la lista de cámaras activas: {e}")
+            return []
