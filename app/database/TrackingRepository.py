@@ -110,7 +110,6 @@ class TrackingRepository:
                 current_time
             ))
 
-            # 4. Obtenemos el resultado (el valor de COUNT(*))
             count = self.cursor.fetchone()[0]
 
             return count > 0  # Si es > 0, ¡hay un horario activo!

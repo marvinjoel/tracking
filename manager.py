@@ -3,6 +3,7 @@ import time
 import sys
 from app.database.DatabaseConnection import DatabaseConnection
 from app.database.TrackingRepository import TrackingRepository
+from app.utils.algorithm_registry import ALGORITHM_REGISTRY
 
 running_processes = {}
 CHECK_INTERVAL = 30
@@ -15,28 +16,24 @@ def launch_camera_process(camera_id, url_rtsp, algorithm):
     global running_processes
 
     cam_id_str = str(camera_id)
-    command = None
 
-    if algorithm == "person_tracking":
-        command = [sys.executable, "main.py", "--url", url_rtsp, "--camera_id", cam_id_str]
+    script_to_run: str = ALGORITHM_REGISTRY.get(algorithm)
 
-    elif algorithm == 'box_counting':
-        # (Asegúrate de tener un script llamado box_counter.py para esto)
-        command = [sys.executable, "box_counter.py", "--url", url_rtsp, "--camera_id", cam_id_str]
-
-    elif algorithm == 'license_plate_reader':
-        # (Y un script lpr.py para esto)
-        command = [sys.executable, "lpr.py", "--url", url_rtsp, "--camera_id", cam_id_str]
-
-    else:
+    if not script_to_run:
         print(f"--- MANAGER: Error: Algoritmo '{algorithm}' desconocido para ID {camera_id}. No se puede lanzar. ---")
-        return  # No hacemos nada si no conocemos el algoritmo
+        return
+
+    command = [
+        sys.executable,
+        script_to_run,
+        "--url", url_rtsp,
+        "--camera_id", cam_id_str
+    ]
 
     print(f"--- MANAGER: Iniciando proceso para Cámara ID {cam_id_str} ---")
     print(f"--- MANAGER: Comando: {' '.join(command)} ---")
 
     try:
-        # Usamos Popen (no run) para lanzar en segundo plano
         process = subprocess.Popen(command)
         running_processes[camera_id] = process
         print(f"--- MANAGER: Proceso para Cámara ID {cam_id_str} iniciado (PID: {process.pid}) ---")
