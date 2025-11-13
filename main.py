@@ -17,6 +17,10 @@ from app.utils.roi_manager import (
     draw_roi_on_frame,
     get_roi_state
 )
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 print("Cargando modelo YOLO...")
@@ -39,8 +43,9 @@ else:
     state_manager = StateManager(db_repo=None)
     db_repo = None
 # --- FIN DE INICIALIZACIÓN ---
-
-video_path = 0
+path_local: int = int(os.environ.get("VIDEO_PATH_LOCAL"))
+path_port: str = os.environ.get("VIDEO_PATH_PORT")
+video_path = path_local
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
