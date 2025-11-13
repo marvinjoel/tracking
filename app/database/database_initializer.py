@@ -25,6 +25,7 @@ def initialize_database(cursor):
     create_events_table_query = """
     CREATE TABLE IF NOT EXISTS tracking_events (
         id SERIAL PRIMARY KEY,
+        camera_id VARCHAR(50) NOT NULL,
         track_id VARCHAR(50) NOT NULL,
         timestamp_evento TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         tipo_evento VARCHAR(10) NOT NULL 
@@ -46,3 +47,23 @@ def initialize_database(cursor):
     """
     cursor.execute(create_schedule_table_query)
     print("Tabla 'horarios_medicion' verificada/creada.")
+
+    create_cameras_table_query = """
+    CREATE TABLE IF NOT EXISTS lista_camaras (
+        id SERIAL PRIMARY KEY,
+        
+        -- 'Cámara Puerta Principal', 'Cámara Almacén'
+        nombre_camara VARCHAR(100) NOT NULL,
+        
+        -- 'rtsp://user:pass@192.168.1.10/stream' o '0' para webcam
+        url_rtsp TEXT NOT NULL, 
+        
+        -- 'person_tracking', 'box_counting', etc.
+        algoritmo_a_usar VARCHAR(50), 
+        
+        -- True si el manager debe iniciar esta cámara
+        esta_activa BOOLEAN DEFAULT true 
+    );
+    """
+    cursor.execute(create_cameras_table_query)
+    print("Tabla 'lista_camaras' verificada/creada.")
