@@ -9,6 +9,7 @@ class TrackedSubject:
         self.last_disappeared = None
         self.total_visible_time: timedelta = timedelta(0)
         self.total_invisible_time: timedelta = timedelta(0)
+        self.last_proof_saved_time = None
         print(f"NUEVO SUJETO: ID {self.track_id} detectado.")
 
     def mark_visible(self) -> None:
