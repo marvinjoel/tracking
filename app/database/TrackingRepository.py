@@ -40,7 +40,7 @@ class TrackingRepository:
             ))
         print(f"Resumen de {len(summary_data)} tracks guardado en la BD.")
 
-    def log_event(self, track_id: str, event_type: str):
+    def log_event(self, camera_id: str, track_id: str, event_type: str):
         """
         Tarea Nueva: Guarda el evento de movimiento
         """
@@ -49,10 +49,10 @@ class TrackingRepository:
 
         try:
             insert_query = sql.SQL("""
-                                   INSERT INTO tracking_events (track_id, tipo_evento)
-                                   VALUES (%s, %s)
+                                   INSERT INTO tracking_events (camera_id, track_id, tipo_evento) 
+                                    VALUES (%s, %s, %s)
                                    """)
-            self.cursor.execute(insert_query, (track_id, event_type))
+            self.cursor.execute(insert_query, (camera_id, track_id, event_type))
 
         except Exception as e:
             print(f"Error al registrar evento en BD: {e}")

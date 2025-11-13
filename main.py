@@ -1,14 +1,13 @@
-from ultralytics import YOLO
-from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
 import json
 import os
 import time
+import argparse
 
 from app.database.DatabaseConnection import DatabaseConnection
 from app.database.TrackingRepository import TrackingRepository
 from app.database.database_initializer import initialize_database
-# Importamos el "cerebro"
+from deep_sort_realtime.deepsort_tracker import DeepSort
 from app.state_manager import StateManager
 from app.utils.image_saver import save_proof_image
 from app.utils.roi_manager import (
@@ -17,10 +16,33 @@ from app.utils.roi_manager import (
     draw_roi_on_frame,
     get_roi_state
 )
+from ultralytics import YOLO
 from dotenv import load_dotenv
 
 
 load_dotenv()
+
+parser = argparse.ArgumentParser(description="Inicia el tracker en una cámara.")
+parser.add_argument(
+    "--url",
+    required=True,
+    help="La URL RTSP de la cámara, '0' para webcam, o una ruta a un video."
+)
+parser.add_argument(
+    "--camera_id",
+    required=True,
+    help="El ID de la cámara (de la tabla lista_camaras) para asociar los eventos."
+)
+args = parser.parse_args()
+
+video_source = args.url
+if video_source.isdigit():
+    video_path = int(video_source)
+else:
+    video_path = video_source
+
+camera_id_para_eventos = args.camera_id
+print(f"Iniciando tracker para la Cámara ID: {camera_id_para_eventos} (Fuente: {video_path})")
 
 
 print("Cargando modelo YOLO...")
@@ -37,15 +59,13 @@ db_conn = DatabaseConnection()
 if db_conn.conn:
     initialize_database(db_conn.cursor)
     db_repo = TrackingRepository(db_conn.cursor)
-    state_manager = StateManager(db_repo=db_repo)
+    state_manager = StateManager(db_repo=db_repo, camera_id=camera_id_para_eventos)
 else:
     print("ADVERTENCIA: Corriendo sin conexión a base de datos.")
-    state_manager = StateManager(db_repo=None)
+    state_manager = StateManager(db_repo=None, camera_id="default")
     db_repo = None
 # --- FIN DE INICIALIZACIÓN ---
-path_local: int = int(os.environ.get("VIDEO_PATH_LOCAL"))
-path_port: str = os.environ.get("VIDEO_PATH_PORT")
-video_path = path_local
+
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():

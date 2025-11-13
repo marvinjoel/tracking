@@ -2,8 +2,9 @@ from datetime import datetime, timedelta
 
 class TrackedSubject:
 
-    def __init__(self, track_id: int) -> None:
+    def __init__(self, track_id: int, camera_id: str) -> None:
         self.track_id: int = track_id
+        self.camera_id: str = camera_id
         self.is_visible: bool = True
         self.last_seen: datetime = datetime.now()
         self.last_disappeared = None

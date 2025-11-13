@@ -14,9 +14,10 @@ class StateManager:
     """
     PROOF_IMAGE_INTERVAL = timedelta(seconds=int(os.getenv("SECONDS")))
 
-    def __init__(self, db_repo: TrackingRepository) -> None:
+    def __init__(self, db_repo: TrackingRepository= None, camera_id: str = "default_cam"):
         self.subjects = {}
         self.db_repo = db_repo
+        self.camera_id = camera_id
 
     def update_states(self, visible_track_ids) -> set:
         """
@@ -40,7 +41,7 @@ class StateManager:
                 subject.mark_invisible()
 
                 if self.db_repo:
-                    self.db_repo.log_event(track_id, 'PERDIDO')
+                    self.db_repo.log_event(self.camera_id, track_id, 'PERDIDO')
 
                 # Guardamos la PRIMERA prueba
                 ids_to_save_proof.add(track_id)
@@ -58,14 +59,14 @@ class StateManager:
         # 2. Manejar sujetos nuevos o que siguen visibles
         for track_id in visible_set:
             if track_id not in tracked_set:
-                self.subjects[track_id] = TrackedSubject(track_id)
+                self.subjects[track_id] = TrackedSubject(track_id, self.camera_id)
                 if self.db_repo:
-                    self.db_repo.log_event(track_id, 'NUEVO')
+                    self.db_repo.log_event(self.camera_id, track_id, 'NUEVO')
             else:
                 if not self.subjects[track_id].is_visible:
                     self.subjects[track_id].mark_visible()
                     if self.db_repo:
-                        self.db_repo.log_event(track_id, 'VISTO')
+                        self.db_repo.log_event(self.camera_id, track_id, 'VISTO')
                 else:
                     self.subjects[track_id].is_visible = True
 
